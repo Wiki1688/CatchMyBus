@@ -28,9 +28,11 @@ export const LiveArrivalsScreen: React.FC<LiveArrivalsScreenProps> = ({
 
   const [busData, setBusData] = useState<BusArrivalData | null>(null);
   const [busState, setBusState] = useState<FetchState>('loading');
+  const [busErrorStatus, setBusErrorStatus] = useState<string | number>('unknown');
 
   const [rainData, setRainData] = useState<RainData | null>(null);
   const [rainState, setRainState] = useState<FetchState>('loading');
+  const [rainErrorStatus, setRainErrorStatus] = useState<string | number>('unknown');
   const [selectedArea, setSelectedArea] = useState<string>('City');
 
   // Location info for currently active bus stop
@@ -38,6 +40,13 @@ export const LiveArrivalsScreen: React.FC<LiveArrivalsScreenProps> = ({
 
   // Load weather and bus arrivals
   const fetchBusData = useCallback(async (code: string) => {
+    // Validate 5-digit stop code
+    if (!/^\d{5}$/.test(code.trim())) {
+      setBusState('not_found');
+      setBusData(null);
+      return;
+    }
+
     setBusState('loading');
     try {
       const data = await getBus(code);
@@ -50,6 +59,8 @@ export const LiveArrivalsScreen: React.FC<LiveArrivalsScreenProps> = ({
       }
     } catch (err: any) {
       const codeType = err?.code;
+      const statusVal = err?.status || err?.statusCode || 'unknown';
+      setBusErrorStatus(statusVal);
       if (codeType === 'refused') {
         setBusState('refused');
       } else if (codeType === 'unreachable') {
@@ -75,6 +86,8 @@ export const LiveArrivalsScreen: React.FC<LiveArrivalsScreenProps> = ({
       }
     } catch (err: any) {
       const codeType = err?.code;
+      const statusVal = err?.status || err?.statusCode || 'unknown';
+      setRainErrorStatus(statusVal);
       if (codeType === 'refused') {
         setRainState('refused');
       } else if (codeType === 'unreachable') {
@@ -128,9 +141,9 @@ export const LiveArrivalsScreen: React.FC<LiveArrivalsScreenProps> = ({
 
   // Format arrival times according to spec:
   // "0 means 'Arriving', showing 'Arriving' under one minute, and showing a plain sentence when a service has no buses running"
-  const formatArrivals = (next: number[]) => {
+  const formatArrivals = (serviceNo: string, next: number[]) => {
     if (!next || next.length === 0) {
-      return SENTENCES.FAVOURITES.savedBusNotRunning;
+      return SENTENCES.FAVOURITES.savedBusNotRunning(serviceNo);
     }
 
     const parts = next.slice(0, 2).map((min) => {
@@ -230,19 +243,19 @@ export const LiveArrivalsScreen: React.FC<LiveArrivalsScreenProps> = ({
         {/* States according to item 5 */}
         {busState === 'loading' && (
           <div className="status-banner loading" id="bus-loading-state" style={{ margin: '14px' }}>
-            {SENTENCES.BUS.loading}
+            {SENTENCES.BUS.loading(activeStopCode)}
           </div>
         )}
 
         {busState === 'empty' && (
           <div className="status-banner empty" id="bus-empty-state" style={{ margin: '14px' }}>
-            {SENTENCES.BUS.empty}
+            {SENTENCES.BUS.empty(activeStopCode)}
           </div>
         )}
 
         {busState === 'refused' && (
           <div className="status-banner error" id="bus-refused-state" style={{ margin: '14px' }}>
-            {SENTENCES.BUS.refused}
+            {SENTENCES.BUS.refused(busErrorStatus)}
           </div>
         )}
 
@@ -254,7 +267,7 @@ export const LiveArrivalsScreen: React.FC<LiveArrivalsScreenProps> = ({
 
         {busState === 'not_found' && (
           <div className="status-banner error" id="bus-not-found-state" style={{ margin: '14px' }}>
-            {SENTENCES.FAVOURITES.stopCodeNotFound}
+            {SENTENCES.FAVOURITES.stopCodeInvalid}
           </div>
         )}
 
@@ -267,7 +280,7 @@ export const LiveArrivalsScreen: React.FC<LiveArrivalsScreenProps> = ({
                   <div className="service-main">
                     <span className="service-badge">{svc.serviceNo}</span>
                     <span className="service-arrivals">
-                      {formatArrivals(svc.next)}
+                      {formatArrivals(svc.serviceNo, svc.next)}
                     </span>
                   </div>
                   <button
@@ -304,6 +317,7 @@ export const LiveArrivalsScreen: React.FC<LiveArrivalsScreenProps> = ({
         selectedArea={selectedArea}
         onSelectArea={setSelectedArea}
         fetchState={rainState}
+        errorStatus={rainErrorStatus}
         idPrefix="live"
       />
     </div>

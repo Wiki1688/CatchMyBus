@@ -36,13 +36,14 @@ export const FavouritesScreen: React.FC<FavouritesScreenProps> = ({
     });
   }, [favourites]);
 
-  // Bus data per stop code: { [stopCode]: { data: BusArrivalData | null, state: FetchState } }
+  // Bus data per stop code: { [stopCode]: { data: BusArrivalData | null, state: FetchState, status?: string | number } }
   const [stopsData, setStopsData] = useState<
-    Record<string, { data: BusArrivalData | null; state: FetchState }>
+    Record<string, { data: BusArrivalData | null; state: FetchState; status?: string | number }>
   >({});
 
   const [rainData, setRainData] = useState<RainData | null>(null);
   const [rainState, setRainState] = useState<FetchState>('loading');
+  const [rainErrorStatus, setRainErrorStatus] = useState<string | number>('unknown');
 
   // Stop being renamed: stopCode -> editing name
   const [editingStopCode, setEditingStopCode] = useState<string | null>(null);
@@ -62,6 +63,8 @@ export const FavouritesScreen: React.FC<FavouritesScreenProps> = ({
       }
     } catch (err: any) {
       const code = err?.code;
+      const statusVal = err?.status || err?.statusCode || 'unknown';
+      setRainErrorStatus(statusVal);
       if (code === 'refused') {
         setRainState('refused');
       } else {
@@ -81,6 +84,7 @@ export const FavouritesScreen: React.FC<FavouritesScreenProps> = ({
         nextMap[fav.stopCode] = {
           data: prev[fav.stopCode]?.data || null,
           state: prev[fav.stopCode]?.data ? 'success' : 'loading',
+          status: prev[fav.stopCode]?.status,
         };
       });
       return nextMap;
@@ -89,6 +93,17 @@ export const FavouritesScreen: React.FC<FavouritesScreenProps> = ({
     // Fetch all stops concurrently
     await Promise.all(
       favourites.map(async (fav) => {
+        if (!/^\d{5}$/.test(fav.stopCode.trim())) {
+          setStopsData((prev) => ({
+            ...prev,
+            [fav.stopCode]: {
+              data: null,
+              state: 'not_found',
+            },
+          }));
+          return;
+        }
+
         try {
           const data = await getBus(fav.stopCode);
           setStopsData((prev) => ({
@@ -101,6 +116,7 @@ export const FavouritesScreen: React.FC<FavouritesScreenProps> = ({
           }));
         } catch (err: any) {
           const code = err?.code;
+          const statusVal = err?.status || err?.statusCode || 'unknown';
           setStopsData((prev) => ({
             ...prev,
             [fav.stopCode]: {
@@ -111,6 +127,7 @@ export const FavouritesScreen: React.FC<FavouritesScreenProps> = ({
                   : code === 'refused'
                   ? 'refused'
                   : 'unreachable',
+              status: statusVal,
             },
           }));
         }
@@ -272,15 +289,15 @@ export const FavouritesScreen: React.FC<FavouritesScreenProps> = ({
     const entry = stopsData[stopCode];
 
     if (!entry || entry.state === 'loading') {
-      return SENTENCES.BUS.loading;
+      return SENTENCES.BUS.loading(stopCode);
     }
 
     if (entry.state === 'not_found') {
-      return SENTENCES.FAVOURITES.stopCodeNotFound;
+      return SENTENCES.FAVOURITES.stopCodeInvalid;
     }
 
     if (entry.state === 'refused') {
-      return SENTENCES.BUS.refused;
+      return SENTENCES.BUS.refused(entry.status || 'unknown');
     }
 
     if (entry.state === 'unreachable') {
@@ -290,7 +307,7 @@ export const FavouritesScreen: React.FC<FavouritesScreenProps> = ({
     const svc = entry.data?.services.find((s) => s.serviceNo === serviceNo);
 
     if (!svc || !svc.next || svc.next.length === 0) {
-      return SENTENCES.FAVOURITES.savedBusNotRunning;
+      return SENTENCES.FAVOURITES.savedBusNotRunning(serviceNo);
     }
 
     const arrivals = svc.next.slice(0, 2).map((m) => {
@@ -459,6 +476,7 @@ export const FavouritesScreen: React.FC<FavouritesScreenProps> = ({
                     selectedArea={fav.area || 'City'}
                     onSelectArea={(newArea) => handleChangeStopArea(fav.stopCode, newArea)}
                     fetchState={rainState}
+                    errorStatus={rainErrorStatus}
                     idPrefix={`fav-${fav.stopCode}`}
                   />
                 </div>

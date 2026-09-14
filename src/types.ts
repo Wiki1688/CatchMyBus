@@ -32,20 +32,31 @@ export type FetchState = 'idle' | 'loading' | 'success' | 'empty' | 'refused' | 
 
 export const SENTENCES = {
   BUS: {
-    loading: 'Checking for arriving buses...',
-    empty: 'No bus services are currently operating from this stop.',
-    refused: 'Unable to retrieve bus arrivals: service request was not accepted.',
-    unreachable: 'Unable to reach bus arrival servers. Please check your connection.',
+    loading: (stopCode: string = '[stop code]') => `Checking buses at bus stop ${stopCode}…`,
+    empty: (stopCode: string = '[stop code]') =>
+      `No bus services at bus stop ${stopCode} right now!! Check the 5-digit code on the bus stop pole, or try again after 5:30 am.`,
+    refused: (status: string | number = 'unknown') =>
+      `Unable to retrieve bus arrivals (error ${status})!!`,
+    unreachable:
+      'No connection to LTA!! Check the timetable at the stop or try again shortly.',
   },
   RAIN: {
-    loading: 'Checking the latest weather forecast...',
-    empty: 'No forecast data is currently available for this area.',
-    refused: 'Unable to retrieve weather forecast: request was not accepted.',
-    unreachable: 'Unable to reach weather forecast servers. Please check your connection.',
+    loading: (area: string = '[area]') => `Checking the weather for the ${area} area…`,
+    empty: (area: string = '[area]') =>
+      `Weather forecast currently unavailable for the ${area} area!! Try again in a few minutes.`,
+    refused: (status: string | number = 'unknown') =>
+      `Unable to retrieve weather forecast (error ${status})!! Try again in a minute.`,
+    unreachable:
+      'No connection to the weather service!! Look out of the window for now.',
   },
   FAVOURITES: {
-    savedBusNotRunning: 'This bus is not currently in service.',
-    stopCodeNotFound: 'This bus stop code could not be found.',
-    noFavourites: 'No favourite bus stops saved yet. Tap the star on any bus arrival in Live Bus Arrivals to add it here.',
+    savedBusNotRunning: (service: string = '[service]') =>
+      `Bus ${service} currently not in service!!`,
+    stopCodeInvalid:
+      'Bus stop code is invalid!! The 5-digit code is printed on the pole at the bus stop.',
+    stopCodeNotFound:
+      'Bus stop code is invalid!! The 5-digit code is printed on the pole at the bus stop.',
+    noFavourites:
+      'No favourite bus stops saved yet!! Tap the star on any bus arrival in Live Bus Arrivals to add it here.',
   },
 };

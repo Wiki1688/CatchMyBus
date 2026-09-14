@@ -7,6 +7,7 @@ interface WeatherPanelProps {
   selectedArea: string;
   onSelectArea: (area: string) => void;
   fetchState: FetchState;
+  errorStatus?: string | number;
   idPrefix?: string;
 }
 
@@ -15,6 +16,7 @@ export const WeatherPanel: React.FC<WeatherPanelProps> = ({
   selectedArea,
   onSelectArea,
   fetchState,
+  errorStatus = 'unknown',
   idPrefix = 'main',
 }) => {
   const currentAreaForecast = rainData?.areas.find(
@@ -47,13 +49,13 @@ export const WeatherPanel: React.FC<WeatherPanelProps> = ({
 
       {fetchState === 'loading' && (
         <div className="status-banner loading" id={`${idPrefix}-rain-loading`}>
-          {SENTENCES.RAIN.loading}
+          {SENTENCES.RAIN.loading(selectedArea)}
         </div>
       )}
 
       {fetchState === 'refused' && (
         <div className="status-banner error" id={`${idPrefix}-rain-refused`}>
-          {SENTENCES.RAIN.refused}
+          {SENTENCES.RAIN.refused(errorStatus)}
         </div>
       )}
 
@@ -65,7 +67,7 @@ export const WeatherPanel: React.FC<WeatherPanelProps> = ({
 
       {fetchState === 'empty' && (
         <div className="status-banner empty" id={`${idPrefix}-rain-empty`}>
-          {SENTENCES.RAIN.empty}
+          {SENTENCES.RAIN.empty(selectedArea)}
         </div>
       )}
 
@@ -89,7 +91,7 @@ export const WeatherPanel: React.FC<WeatherPanelProps> = ({
 
       {fetchState === 'success' && !currentAreaForecast && (
         <div className="status-banner empty">
-          {SENTENCES.RAIN.empty}
+          {SENTENCES.RAIN.empty(selectedArea)}
         </div>
       )}
     </section>

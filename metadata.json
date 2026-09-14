@@ -2,6 +2,7 @@
   "name": "Catch My Bus!",
   "description": "Mobile-first Singapore bus arrival and weather forecast web app.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }
-
