@@ -1,4 +1,5 @@
 import React from 'react';
+import { CuteBusBanner } from './CuteBusBanner.tsx';
 
 interface GreetingHeaderProps {
   name: string;
@@ -19,6 +20,11 @@ export const GreetingHeader: React.FC<GreetingHeaderProps> = ({ name, onEditName
 
   return (
     <header className="top-header" id="app-header">
+      {/* Cheerful cute caricature banner with bright colors */}
+      <div className="header-hero-banner" id="header-hero-banner">
+        <CuteBusBanner />
+      </div>
+
       <div className="top-header-row">
         <span className="app-brand">Catch My Bus!</span>
         {onEditName && (

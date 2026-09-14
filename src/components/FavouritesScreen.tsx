@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { FavouriteStop, BusArrivalData, RainData, FetchState, SENTENCES } from '../types.ts';
 import { getBus, getRain } from '../data.js';
+import { getBusStopLocation } from '../busStopsData.ts';
 import { WeatherPanel } from './WeatherPanel.tsx';
 
 interface FavouritesScreenProps {
@@ -12,8 +13,28 @@ export const FavouritesScreen: React.FC<FavouritesScreenProps> = ({
   favourites,
   onUpdateFavourites,
 }) => {
-  // Collapsed by default (one at a time)
-  const [expandedStopCode, setExpandedStopCode] = useState<string | null>(null);
+  // Expanded stop codes: expanded by default so starred buses are immediately visible
+  const [expandedStopCodes, setExpandedStopCodes] = useState<Record<string, boolean>>(() => {
+    const map: Record<string, boolean> = {};
+    // Expand all cards by default so starred buses are immediately shown
+    favourites.forEach((fav) => {
+      map[fav.stopCode] = true;
+    });
+    return map;
+  });
+
+  // Keep expanded state updated if new stops are added
+  useEffect(() => {
+    setExpandedStopCodes((prev) => {
+      const next = { ...prev };
+      favourites.forEach((fav) => {
+        if (next[fav.stopCode] === undefined) {
+          next[fav.stopCode] = true;
+        }
+      });
+      return next;
+    });
+  }, [favourites]);
 
   // Bus data per stop code: { [stopCode]: { data: BusArrivalData | null, state: FetchState } }
   const [stopsData, setStopsData] = useState<
@@ -49,44 +70,52 @@ export const FavouritesScreen: React.FC<FavouritesScreenProps> = ({
     }
   }, []);
 
-  // Fetch bus arrivals for all favourite stops
+  // Fetch bus arrivals concurrently for all favourite stops
   const fetchAllFavouritesBuses = useCallback(async () => {
     if (favourites.length === 0) return;
 
-    // Set all to loading initially
+    // Mark stops as loading while preserving existing data
     setStopsData((prev) => {
       const nextMap = { ...prev };
       favourites.forEach((fav) => {
         nextMap[fav.stopCode] = {
           data: prev[fav.stopCode]?.data || null,
-          state: 'loading',
+          state: prev[fav.stopCode]?.data ? 'success' : 'loading',
         };
       });
       return nextMap;
     });
 
-    // Fetch each stop
-    for (const fav of favourites) {
-      try {
-        const data = await getBus(fav.stopCode);
-        setStopsData((prev) => ({
-          ...prev,
-          [fav.stopCode]: {
-            data,
-            state: !data || !data.services || data.services.length === 0 ? 'empty' : 'success',
-          },
-        }));
-      } catch (err: any) {
-        const code = err?.code;
-        setStopsData((prev) => ({
-          ...prev,
-          [fav.stopCode]: {
-            data: null,
-            state: code === 'not_found' ? 'not_found' : code === 'refused' ? 'refused' : 'unreachable',
-          },
-        }));
-      }
-    }
+    // Fetch all stops concurrently
+    await Promise.all(
+      favourites.map(async (fav) => {
+        try {
+          const data = await getBus(fav.stopCode);
+          setStopsData((prev) => ({
+            ...prev,
+            [fav.stopCode]: {
+              data,
+              state:
+                !data || !data.services || data.services.length === 0 ? 'empty' : 'success',
+            },
+          }));
+        } catch (err: any) {
+          const code = err?.code;
+          setStopsData((prev) => ({
+            ...prev,
+            [fav.stopCode]: {
+              data: null,
+              state:
+                code === 'not_found'
+                  ? 'not_found'
+                  : code === 'refused'
+                  ? 'refused'
+                  : 'unreachable',
+            },
+          }));
+        }
+      })
+    );
   }, [favourites]);
 
   // Initial fetch and 20s auto-refresh while open
@@ -102,9 +131,12 @@ export const FavouritesScreen: React.FC<FavouritesScreenProps> = ({
     return () => clearInterval(interval);
   }, [fetchRain, fetchAllFavouritesBuses]);
 
-  // Card expansion toggle (one at a time)
+  // Card expansion toggle
   const toggleExpand = (stopCode: string) => {
-    setExpandedStopCode((curr) => (curr === stopCode ? null : stopCode));
+    setExpandedStopCodes((prev) => ({
+      ...prev,
+      [stopCode]: !prev[stopCode],
+    }));
   };
 
   // Move up
@@ -155,9 +187,11 @@ export const FavouritesScreen: React.FC<FavouritesScreenProps> = ({
       // Removing the last bus removes the card entirely
       const nextList = favourites.filter((f) => f.stopCode !== stopCode);
       onUpdateFavourites(nextList);
-      if (expandedStopCode === stopCode) {
-        setExpandedStopCode(null);
-      }
+      setExpandedStopCodes((prev) => {
+        const next = { ...prev };
+        delete next[stopCode];
+        return next;
+      });
     } else {
       const nextList = favourites.map((f) =>
         f.stopCode === stopCode ? { ...f, services: remainingServices } : f
@@ -175,6 +209,15 @@ export const FavouritesScreen: React.FC<FavouritesScreenProps> = ({
   };
 
   // Generate the collapsed one-line summary:
+  // Display name helper: prefers user custom name, falls back to location description
+  const getDisplayName = (fav: FavouriteStop) => {
+    if (!fav.stopName || fav.stopName === fav.stopCode) {
+      return getBusStopLocation(fav.stopCode).description;
+    }
+    return fav.stopName;
+  };
+
+  // Required summary string format:
   // "Home · 01039 · next: 7 in 4 min · Showers"
   const getCollapsedSummary = (fav: FavouriteStop) => {
     const stopEntry = stopsData[fav.stopCode];
@@ -182,17 +225,19 @@ export const FavouritesScreen: React.FC<FavouritesScreenProps> = ({
       (a) => a.area.toLowerCase() === fav.area.toLowerCase()
     );
     const weatherWord = weatherArea ? weatherArea.forecast : 'Weather pending';
+    const displayName = getDisplayName(fav);
 
     if (!stopEntry || stopEntry.state === 'loading') {
-      return `${fav.stopName} · ${fav.stopCode} · next: checking... · ${weatherWord}`;
+      const busListStr = fav.services.length > 0 ? `Buses: ${fav.services.join(', ')}` : 'checking...';
+      return `${displayName} · ${fav.stopCode} · ${busListStr} · ${weatherWord}`;
     }
 
     if (stopEntry.state === 'not_found') {
-      return `${fav.stopName} · ${fav.stopCode} · Stop code not found · ${weatherWord}`;
+      return `${displayName} · ${fav.stopCode} · Stop code not found · ${weatherWord}`;
     }
 
     if (stopEntry.state === 'refused' || stopEntry.state === 'unreachable') {
-      return `${fav.stopName} · ${fav.stopCode} · Arrival unavailable · ${weatherWord}`;
+      return `${displayName} · ${fav.stopCode} · Arrival unavailable · ${weatherWord}`;
     }
 
     const availableServices = stopEntry.data?.services || [];
@@ -219,7 +264,7 @@ export const FavouritesScreen: React.FC<FavouritesScreenProps> = ({
       }
     }
 
-    return `${fav.stopName} · ${fav.stopCode} · next: ${nextBusStr} · ${weatherWord}`;
+    return `${displayName} · ${fav.stopCode} · next: ${nextBusStr} · ${weatherWord}`;
   };
 
   // Format arrival text for an individual starred bus row in expanded view
@@ -274,8 +319,10 @@ export const FavouritesScreen: React.FC<FavouritesScreenProps> = ({
     <div className="main-content" id="favourites-screen">
       <div className="favourites-list" id="favourites-card-list">
         {favourites.map((fav, index) => {
-          const isExpanded = expandedStopCode === fav.stopCode;
+          const isExpanded = Boolean(expandedStopCodes[fav.stopCode]);
           const isEditing = editingStopCode === fav.stopCode;
+          const stopLocation = getBusStopLocation(fav.stopCode);
+          const displayName = getDisplayName(fav);
 
           return (
             <article
@@ -283,7 +330,7 @@ export const FavouritesScreen: React.FC<FavouritesScreenProps> = ({
               className={`fav-card ${isExpanded ? 'expanded' : ''}`}
               id={`fav-card-${fav.stopCode}`}
             >
-              {/* Collapsed One-Line Button (tap to expand) */}
+              {/* Summary button with starred buses badges (always visible) */}
               <button
                 type="button"
                 className="fav-summary-btn"
@@ -291,15 +338,30 @@ export const FavouritesScreen: React.FC<FavouritesScreenProps> = ({
                 aria-expanded={isExpanded}
                 id={`fav-summary-btn-${fav.stopCode}`}
               >
-                <span className="fav-summary-line">{getCollapsedSummary(fav)}</span>
+                <div className="fav-summary-content">
+                  <span className="fav-summary-line">{getCollapsedSummary(fav)}</span>
+                  <div className="fav-badges-preview">
+                    {fav.services.map((s) => (
+                      <span key={s} className="service-badge-sm">
+                        {s}
+                      </span>
+                    ))}
+                  </div>
+                </div>
                 <span className="expand-chevron" aria-hidden="true">
                   {isExpanded ? '▲' : '▼'}
                 </span>
               </button>
 
-              {/* Expanded Card Body (one at a time) */}
+              {/* Expanded Card Body (default open so starred buses show immediately) */}
               {isExpanded && (
                 <div className="fav-expanded-body" id={`fav-expanded-${fav.stopCode}`}>
+                  {/* Location subtitle */}
+                  <div className="fav-location-subtitle">
+                    <span className="fav-loc-desc">{stopLocation.description}</span>
+                    <span className="fav-loc-road">({stopLocation.roadName})</span>
+                  </div>
+
                   {/* Card Toolbar: Rename + Move Up / Move Down */}
                   <div className="fav-card-toolbar">
                     {isEditing ? (
@@ -329,7 +391,7 @@ export const FavouritesScreen: React.FC<FavouritesScreenProps> = ({
                         onClick={() => handleStartRename(fav)}
                         id={`start-rename-btn-${fav.stopCode}`}
                       >
-                        Rename stop
+                        Rename stop ({displayName})
                       </button>
                     )}
 
@@ -360,8 +422,9 @@ export const FavouritesScreen: React.FC<FavouritesScreenProps> = ({
                     </div>
                   </div>
 
-                  {/* List of every starred bus at this stop */}
+                  {/* List of every starred bus at this stop - guaranteed to show */}
                   <div className="fav-buses-list" id={`fav-buses-list-${fav.stopCode}`}>
+                    <div className="fav-buses-header">Starred Buses ({fav.services.length})</div>
                     {fav.services.map((svcNo) => (
                       <div
                         key={svcNo}
@@ -380,7 +443,7 @@ export const FavouritesScreen: React.FC<FavouritesScreenProps> = ({
                           type="button"
                           className="remove-btn"
                           onClick={() => handleRemoveBus(fav.stopCode, svcNo)}
-                          aria-label={`Remove bus ${svcNo} from ${fav.stopName}`}
+                          aria-label={`Remove bus ${svcNo} from ${displayName}`}
                           title={`Remove bus ${svcNo}`}
                           id={`remove-bus-${fav.stopCode}-${svcNo}`}
                         >

@@ -51,7 +51,12 @@ export default function App() {
   };
 
   // Toggle favourite bus at a stop from Screen 1
-  const handleToggleFavourite = (stopCode: string, serviceNo: string, currentArea: string) => {
+  const handleToggleFavourite = (
+    stopCode: string,
+    serviceNo: string,
+    currentArea: string,
+    locationDescription?: string
+  ) => {
     const existingIndex = favourites.findIndex((f) => f.stopCode === stopCode);
 
     if (existingIndex >= 0) {
@@ -75,16 +80,23 @@ export default function App() {
         // Add service
         const nextList = favourites.map((f) =>
           f.stopCode === stopCode
-            ? { ...f, services: [...f.services, serviceNo] }
+            ? {
+                ...f,
+                services: [...f.services, serviceNo],
+                stopName:
+                  f.stopName === f.stopCode && locationDescription
+                    ? locationDescription
+                    : f.stopName,
+              }
             : f
         );
         handleUpdateFavourites(nextList);
       }
     } else {
-      // New stop card
+      // New stop card with location description
       const newStop: FavouriteStop = {
         stopCode,
-        stopName: stopCode, // defaults to stopCode until renamed
+        stopName: locationDescription || stopCode,
         area: currentArea || 'City',
         services: [serviceNo],
       };

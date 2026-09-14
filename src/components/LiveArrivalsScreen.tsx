@@ -1,11 +1,17 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { BusArrivalData, RainData, FavouriteStop, FetchState, SENTENCES } from '../types.ts';
 import { getBus, getRain } from '../data.js';
+import { getBusStopLocation } from '../busStopsData.ts';
 import { WeatherPanel } from './WeatherPanel.tsx';
 
 interface LiveArrivalsScreenProps {
   favourites: FavouriteStop[];
-  onToggleFavourite: (stopCode: string, serviceNo: string, currentArea: string) => void;
+  onToggleFavourite: (
+    stopCode: string,
+    serviceNo: string,
+    currentArea: string,
+    locationDescription?: string
+  ) => void;
 }
 
 export const LiveArrivalsScreen: React.FC<LiveArrivalsScreenProps> = ({
@@ -26,6 +32,9 @@ export const LiveArrivalsScreen: React.FC<LiveArrivalsScreenProps> = ({
   const [rainData, setRainData] = useState<RainData | null>(null);
   const [rainState, setRainState] = useState<FetchState>('loading');
   const [selectedArea, setSelectedArea] = useState<string>('City');
+
+  // Location info for currently active bus stop
+  const currentStopInfo = getBusStopLocation(activeStopCode);
 
   // Load weather and bus arrivals
   const fetchBusData = useCallback(async (code: string) => {
@@ -103,6 +112,14 @@ export const LiveArrivalsScreen: React.FC<LiveArrivalsScreenProps> = ({
     }
   };
 
+  // Quick switch when tapping a nearby bus stop
+  const handleSelectNearbyStop = (nearbyCode: string) => {
+    setStopCodeInput(nearbyCode);
+    setActiveStopCode(nearbyCode);
+    localStorage.setItem('catchMyBus.lastStopCode', nearbyCode);
+    fetchBusData(nearbyCode);
+  };
+
   // Check if a service is starred at the current stop
   const isStarred = (serviceNo: string) => {
     const existingStop = favourites.find((f) => f.stopCode === activeStopCode);
@@ -162,10 +179,51 @@ export const LiveArrivalsScreen: React.FC<LiveArrivalsScreenProps> = ({
         </form>
       </section>
 
-      {/* Bus Services Panel */}
+      {/* Item (2): Nearby Bus Stops */}
+      {currentStopInfo.nearbyStops && currentStopInfo.nearbyStops.length > 0 && (
+        <section className="nearby-stops-card" id="nearby-stops-section" aria-label="Nearby bus stops">
+          <div className="nearby-header">
+            <h3 className="nearby-heading">Nearby Bus Stops</h3>
+            <span className="nearby-hint">Tap to view</span>
+          </div>
+          <div className="nearby-stops-list" id="nearby-stops-list">
+            {currentStopInfo.nearbyStops.map((nearby) => (
+              <button
+                key={nearby.stopCode}
+                type="button"
+                className="nearby-stop-chip"
+                onClick={() => handleSelectNearbyStop(nearby.stopCode)}
+                id={`nearby-stop-${nearby.stopCode}`}
+              >
+                <div className="nearby-chip-top">
+                  <span className="nearby-badge">{nearby.stopCode}</span>
+                  {nearby.distanceText && (
+                    <span className="nearby-dist">{nearby.distanceText}</span>
+                  )}
+                </div>
+                <div className="nearby-chip-desc">{nearby.description}</div>
+                <div className="nearby-chip-road">{nearby.roadName}</div>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Bus Services Panel with Item (1) Location Description */}
       <section className="services-panel" id="services-panel">
         <div className="panel-header">
-          <h2 className="panel-title">Bus Stop {activeStopCode}</h2>
+          <div className="panel-header-main">
+            <div className="panel-header-tag">
+              <span className="panel-stop-num">Stop {activeStopCode}</span>
+            </div>
+            {/* Item (1): Description of the location of the bus stop code */}
+            <h2 className="panel-stop-desc" id="current-stop-description">
+              {currentStopInfo.description}
+            </h2>
+            <div className="panel-stop-road" id="current-stop-road">
+              {currentStopInfo.roadName}
+            </div>
+          </div>
           <span className="refresh-indicator">Refreshes every 20s</span>
         </div>
 
@@ -215,7 +273,14 @@ export const LiveArrivalsScreen: React.FC<LiveArrivalsScreenProps> = ({
                   <button
                     type="button"
                     className={`star-btn ${starred ? 'starred' : ''}`}
-                    onClick={() => onToggleFavourite(activeStopCode, svc.serviceNo, selectedArea)}
+                    onClick={() =>
+                      onToggleFavourite(
+                        activeStopCode,
+                        svc.serviceNo,
+                        selectedArea,
+                        currentStopInfo.description
+                      )
+                    }
                     aria-label={
                       starred
                         ? `Remove service ${svc.serviceNo} from favourites`
