@@ -1,6 +1,5 @@
 import React from 'react';
 import { RainData, FetchState, SENTENCES } from '../types.ts';
-import { SG_WEATHER_AREAS } from '../data.js';
 
 interface WeatherPanelProps {
   rainData: RainData | null;
@@ -23,6 +22,14 @@ export const WeatherPanel: React.FC<WeatherPanelProps> = ({
     (a) => a.area.toLowerCase() === selectedArea.toLowerCase()
   );
 
+  // Read available areas directly from the live rainData response
+  const areaOptions =
+    rainData?.areas && rainData.areas.length > 0
+      ? rainData.areas.map((a) => a.area)
+      : selectedArea
+      ? [selectedArea]
+      : ['City'];
+
   return (
     <section className="weather-panel" id={`${idPrefix}-weather-panel`}>
       <h2 className="weather-heading" id={`${idPrefix}-weather-heading`}>
@@ -39,7 +46,7 @@ export const WeatherPanel: React.FC<WeatherPanelProps> = ({
           value={selectedArea}
           onChange={(e) => onSelectArea(e.target.value)}
         >
-          {SG_WEATHER_AREAS.map((areaName) => (
+          {areaOptions.map((areaName) => (
             <option key={areaName} value={areaName}>
               {areaName}
             </option>

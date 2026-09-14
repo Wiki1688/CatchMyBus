@@ -200,13 +200,13 @@ export const LiveArrivalsScreen: React.FC<LiveArrivalsScreenProps> = ({
             <span className="nearby-hint">Tap to view</span>
           </div>
           <div className="nearby-stops-list" id="nearby-stops-list">
-            {currentStopInfo.nearbyStops.map((nearby) => (
+            {currentStopInfo.nearbyStops.map((nearby, idx) => (
               <button
-                key={nearby.stopCode}
+                key={`${nearby.stopCode}-${idx}`}
                 type="button"
                 className="nearby-stop-chip"
                 onClick={() => handleSelectNearbyStop(nearby.stopCode)}
-                id={`nearby-stop-${nearby.stopCode}`}
+                id={`nearby-stop-${nearby.stopCode}-${idx}`}
               >
                 <div className="nearby-chip-top">
                   <span className="nearby-badge">{nearby.stopCode}</span>
@@ -287,29 +287,40 @@ export const LiveArrivalsScreen: React.FC<LiveArrivalsScreenProps> = ({
                     type="button"
                     className={`star-btn ${starred ? 'starred' : ''}`}
                     onClick={() =>
-                      onToggleFavourite(
-                        activeStopCode,
-                        svc.serviceNo,
-                        selectedArea,
-                        currentStopInfo.description
-                      )
-                    }
-                    aria-label={
-                      starred
-                        ? `Remove service ${svc.serviceNo} from favourites`
-                        : `Add service ${svc.serviceNo} to favourites`
-                    }
-                    title={starred ? 'Starred in favourites' : 'Star this bus'}
-                    id={`star-btn-${svc.serviceNo}`}
-                  >
-                    {starred ? '★' : '☆'}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
+                    onToggleFavourite(
+                      activeStopCode,
+                      svc.serviceNo,
+                      selectedArea,
+                      currentStopInfo.description
+                    )
+                  }
+                  aria-label={
+                    starred
+                      ? `Remove service ${svc.serviceNo} from favourites`
+                      : `Add service ${svc.serviceNo} to favourites`
+                  }
+                  title={starred ? 'Starred in favourites' : 'Star this bus'}
+                  id={`star-btn-${svc.serviceNo}`}
+                >
+                  {starred ? '★' : '☆'}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      {busState === 'success' && busData?.fetchedAt && (
+        <div className="bus-updated" id="bus-last-updated">
+          Last updated {new Date(busData.fetchedAt).toLocaleTimeString('en-GB', {
+            timeZone: 'Asia/Singapore',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+          })}
+        </div>
+      )}
+    </section>
 
       {/* Weather Panel */}
       <WeatherPanel

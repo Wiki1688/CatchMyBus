@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { FavouriteStop } from './types.ts';
-import { SIMULATION_FLAG, setSimulationFlag } from './data.js';
 import { GreetingHeader } from './components/GreetingHeader.tsx';
 import { NameModal } from './components/NameModal.tsx';
 import { LiveArrivalsScreen } from './components/LiveArrivalsScreen.tsx';
@@ -33,9 +32,6 @@ export default function App() {
     }
     return [];
   });
-
-  // Simulation mode state for testing item 5 sentences
-  const [activeSimulation, setActiveSimulation] = useState<string>(SIMULATION_FLAG);
 
   // Save name handler
   const handleSaveName = (newName: string) => {
@@ -104,14 +100,6 @@ export default function App() {
     }
   };
 
-  // Switch simulation flag for easy verification of item 5 sentences
-  const handleSimChange = (flag: string) => {
-    setSimulationFlag(flag);
-    setActiveSimulation(flag);
-    // Force re-render of active screen
-    setActiveTab((prev) => prev);
-  };
-
   return (
     <div className="app-container" id="app-root-container">
       {/* First-time first name prompt */}
@@ -134,7 +122,6 @@ export default function App() {
       {/* Screen 1: Live Bus Arrivals */}
       {activeTab === 'live' && (
         <LiveArrivalsScreen
-          key={`live-${activeSimulation}`}
           favourites={favourites}
           onToggleFavourite={handleToggleFavourite}
         />
@@ -143,38 +130,10 @@ export default function App() {
       {/* Screen 2: My Favourites */}
       {activeTab === 'favourites' && (
         <FavouritesScreen
-          key={`fav-${activeSimulation}`}
           favourites={favourites}
           onUpdateFavourites={handleUpdateFavourites}
         />
       )}
-
-      {/* Simulation Mode Switcher to verify all Item 5 sentences */}
-      <div className="main-content" style={{ paddingTop: 0, paddingBottom: 0 }}>
-        <aside className="dev-sim-box" id="dev-sim-box" aria-label="Test states">
-          <div className="dev-sim-title">Test item 5 states (flag in src/data.js):</div>
-          <div className="dev-sim-buttons">
-            {[
-              { id: 'normal', label: 'Normal' },
-              { id: 'empty', label: 'Empty' },
-              { id: 'refused', label: 'Refused' },
-              { id: 'unreachable', label: 'Unreachable' },
-              { id: 'not_running', label: 'Not running' },
-              { id: 'not_found', label: 'Not found' },
-            ].map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                className={`dev-sim-btn ${activeSimulation === item.id ? 'active' : ''}`}
-                onClick={() => handleSimChange(item.id)}
-                id={`sim-btn-${item.id}`}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
-        </aside>
-      </div>
 
       {/* Mandatory licensing footer */}
       <LicenseFooter />

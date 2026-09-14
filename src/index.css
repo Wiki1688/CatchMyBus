@@ -460,6 +460,14 @@ html, body {
   background-color: #fffbeb;
 }
 
+.bus-updated {
+  font-size: 14px;
+  color: var(--text-subtle);
+  padding: 10px 16px;
+  background-color: var(--bg-muted);
+  border-top: 1px solid var(--border-color);
+}
+
 /* Weather Panel */
 .weather-panel {
   background-color: var(--bg-card);

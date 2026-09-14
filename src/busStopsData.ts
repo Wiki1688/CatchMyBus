@@ -206,9 +206,16 @@ export function getBusStopLocation(stopCode: string): BusStopInfo {
   const road = roads[num % roads.length];
   const landmark = landmarks[(num * 3) % landmarks.length];
 
-  // Synthesize 3-4 nearby stops
+  // Synthesize 3-4 nearby stops with strictly unique 5-digit stop codes
   const nearbyStops = [1, -1, 2, -2].map((offset, i) => {
-    const nearbyNum = String(Math.max(1000, Math.min(99990, num + offset * 10 + i))).padStart(5, '0');
+    // Ensure the generated code wraps within valid 5-digit range [01000, 99989] without clashing
+    let candidate = num + offset * 10 + (i + 1);
+    if (candidate > 99998) {
+      candidate = 90000 + ((num + offset * 10 + i) % 9000);
+    } else if (candidate < 1000) {
+      candidate = 1000 + ((num + i * 15) % 8000);
+    }
+    const nearbyNum = String(Math.max(1000, Math.min(99998, candidate))).padStart(5, '0');
     const nearbyLandmark = landmarks[(num * 3 + i * 2 + 1) % landmarks.length];
     const distances = ['90m', '140m', '220m', '290m'];
     return {
