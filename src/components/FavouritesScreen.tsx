@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { FavouriteStop, BusArrivalData, RainData, FetchState, SENTENCES } from '../types.ts';
-import { getBus, getRain } from '../data.js';
+import { FavouriteStop, BusArrivalData, RainData, StopInfo, FetchState, SENTENCES } from '../types.ts';
+import { getBus, getRain, getStop } from '../data.js';
 import { WeatherPanel } from './WeatherPanel.tsx';
 
 interface FavouritesScreenProps {
@@ -47,6 +47,9 @@ export const FavouritesScreen: React.FC<FavouritesScreenProps> = ({
   // Stop being renamed: stopCode -> editing name
   const [editingStopCode, setEditingStopCode] = useState<string | null>(null);
   const [tempStopName, setTempStopName] = useState<string>('');
+
+  // Official stop descriptions from LTA: stopCode -> StopInfo
+  const [stopsInfo, setStopsInfo] = useState<Record<string, StopInfo>>({});
 
   // Fetch rain data (shared across all areas)
   const fetchRain = useCallback(async () => {
@@ -102,6 +105,17 @@ export const FavouritesScreen: React.FC<FavouritesScreenProps> = ({
           }));
           return;
         }
+
+        // Fetch stop details if not already fetched
+        getStop(fav.stopCode)
+          .then((info) => {
+            if (info) {
+              setStopsInfo((prev) => ({ ...prev, [fav.stopCode]: info }));
+            }
+          })
+          .catch(() => {
+            // Ignore error here as stopsData handles state
+          });
 
         try {
           const data = await getBus(fav.stopCode);
@@ -225,12 +239,16 @@ export const FavouritesScreen: React.FC<FavouritesScreenProps> = ({
   };
 
   // Generate the collapsed one-line summary:
-  // Display name helper: prefers user custom name, falls back to stop code
+  // Display name helper: prefers user custom name, falls back to official LTA stop description, then stop code
   const getDisplayName = (fav: FavouriteStop) => {
-    if (!fav.stopName || fav.stopName === fav.stopCode) {
-      return fav.stopCode;
+    if (fav.stopName && fav.stopName !== fav.stopCode) {
+      return fav.stopName;
     }
-    return fav.stopName;
+    const officialDesc = stopsInfo[fav.stopCode]?.description;
+    if (officialDesc) {
+      return officialDesc;
+    }
+    return fav.stopCode;
   };
 
   // Required summary string format:
@@ -371,6 +389,18 @@ export const FavouritesScreen: React.FC<FavouritesScreenProps> = ({
               {/* Expanded Card Body (default open so starred buses show immediately) */}
               {isExpanded && (
                 <div className="fav-expanded-body" id={`fav-expanded-${fav.stopCode}`}>
+                  {/* Official stop description / road name from LTA if available */}
+                  {stopsInfo[fav.stopCode] && (
+                    <div className="fav-location-subtitle" id={`fav-loc-subtitle-${fav.stopCode}`}>
+                      {stopsInfo[fav.stopCode].description && (
+                        <span className="fav-loc-desc">{stopsInfo[fav.stopCode].description}</span>
+                      )}
+                      {stopsInfo[fav.stopCode].roadName && (
+                        <span className="fav-loc-road">· {stopsInfo[fav.stopCode].roadName}</span>
+                      )}
+                    </div>
+                  )}
+
                   {/* Card Toolbar: Rename + Move Up / Move Down */}
                   <div className="fav-card-toolbar">
                     {isEditing ? (

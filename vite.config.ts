@@ -68,6 +68,19 @@ export default defineConfig(() => {
               }
             }
 
+            if (pathname === '/api/stop') {
+              try {
+                const { default: stopHandler } = await import('./api/stop.js');
+                await stopHandler(adaptReq(req, urlObj), adaptRes(res));
+                return;
+              } catch (err) {
+                console.error('Error in /api/stop:', err);
+                res.statusCode = 500;
+                res.end(JSON.stringify({ error: 'Internal Server Error' }));
+                return;
+              }
+            }
+
             if (pathname === '/api/health') {
               try {
                 const { default: healthHandler } = await import('./api/health.js');

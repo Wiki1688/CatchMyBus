@@ -18,6 +18,9 @@ export const LicenseFooter: React.FC = () => {
         Contains information from data.gov.sg Two-hour Weather Forecast, accessed {accessDate}, made
         available under the terms of the Singapore Open Data Licence version 1.0, data.gov.sg/open-data-licence.
       </p>
+      <p>
+        Contains information from LTA DataMall Bus Stops, accessed {accessDate}, made available under the terms of the Singapore Open Data Licence version 1.0, data.gov.sg/open-data-licence.
+      </p>
     </footer>
   );
 };

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { BusArrivalData, RainData, FavouriteStop, FetchState, SENTENCES } from '../types.ts';
-import { getBus, getRain } from '../data.js';
+import { BusArrivalData, RainData, FavouriteStop, StopInfo, FetchState, SENTENCES } from '../types.ts';
+import { getBus, getRain, getStop } from '../data.js';
 import { WeatherPanel } from './WeatherPanel.tsx';
 
 interface LiveArrivalsScreenProps {
@@ -28,6 +28,8 @@ export const LiveArrivalsScreen: React.FC<LiveArrivalsScreenProps> = ({
   const [busState, setBusState] = useState<FetchState>('loading');
   const [busErrorStatus, setBusErrorStatus] = useState<string | number>('unknown');
 
+  const [stopInfo, setStopInfo] = useState<StopInfo | null>(null);
+
   const [rainData, setRainData] = useState<RainData | null>(null);
   const [rainState, setRainState] = useState<FetchState>('loading');
   const [rainErrorStatus, setRainErrorStatus] = useState<string | number>('unknown');
@@ -39,10 +41,24 @@ export const LiveArrivalsScreen: React.FC<LiveArrivalsScreenProps> = ({
     if (!/^\d{5}$/.test(code.trim())) {
       setBusState('not_found');
       setBusData(null);
+      setStopInfo(null);
       return;
     }
 
     setBusState('loading');
+
+    // Fetch stop info (official description, road name, nearby stops)
+    getStop(code)
+      .then((info) => {
+        setStopInfo(info);
+      })
+      .catch((err: any) => {
+        setStopInfo(null);
+        if (err?.code === 'not_found') {
+          setBusState('not_found');
+        }
+      });
+
     try {
       const data = await getBus(code);
       if (!data || !data.services || data.services.length === 0) {
@@ -120,6 +136,14 @@ export const LiveArrivalsScreen: React.FC<LiveArrivalsScreenProps> = ({
     }
   };
 
+  // Switch to a nearby stop when tapped
+  const handleSelectNearbyStop = (nearbyCode: string) => {
+    setStopCodeInput(nearbyCode);
+    localStorage.setItem('catchMyBus.lastStopCode', nearbyCode);
+    setActiveStopCode(nearbyCode);
+    fetchBusData(nearbyCode);
+  };
+
   // Check if a service is starred at the current stop
   const isStarred = (serviceNo: string) => {
     const existingStop = favourites.find((f) => f.stopCode === activeStopCode);
@@ -186,6 +210,12 @@ export const LiveArrivalsScreen: React.FC<LiveArrivalsScreenProps> = ({
             <div className="panel-header-tag">
               <span className="panel-stop-num">Stop {activeStopCode}</span>
             </div>
+            {stopInfo && stopInfo.description && (
+              <h2 className="panel-stop-desc">{stopInfo.description}</h2>
+            )}
+            {stopInfo && stopInfo.roadName && (
+              <div className="panel-stop-road">{stopInfo.roadName}</div>
+            )}
           </div>
           <span className="refresh-indicator">Refreshes every 20s</span>
         </div>
@@ -217,7 +247,7 @@ export const LiveArrivalsScreen: React.FC<LiveArrivalsScreenProps> = ({
 
         {busState === 'not_found' && (
           <div className="status-banner error" id="bus-not-found-state" style={{ margin: '14px' }}>
-            {SENTENCES.FAVOURITES.stopCodeInvalid}
+            Bus stop code is invalid!! The 5-digit code is printed on the pole at the bus stop.
           </div>
         )}
 
@@ -270,6 +300,42 @@ export const LiveArrivalsScreen: React.FC<LiveArrivalsScreenProps> = ({
         </div>
       )}
     </section>
+
+      {/* Nearby Bus Stops Section (sourced from LTA via /api/stop) */}
+      {stopInfo && stopInfo.nearby && stopInfo.nearby.length > 0 && (
+        <section className="nearby-stops-card" id="nearby-stops-card">
+          <div className="nearby-header">
+            <h3 className="nearby-heading">Nearby bus stops</h3>
+            <span className="nearby-hint">Within 300m</span>
+          </div>
+          <div className="nearby-stops-list">
+            {stopInfo.nearby.map((nb) => (
+              <button
+                key={nb.stopCode}
+                type="button"
+                className="nearby-stop-chip"
+                onClick={() => handleSelectNearbyStop(nb.stopCode)}
+                id={`nearby-stop-${nb.stopCode}`}
+              >
+                <div className="nearby-chip-top">
+                  <span className="nearby-badge">{nb.stopCode}</span>
+                  <span className="nearby-dist">approx. {nb.approxMetres}m</span>
+                </div>
+                {nb.description && (
+                  <span className="nearby-chip-desc" title={nb.description}>
+                    {nb.description}
+                  </span>
+                )}
+                {nb.roadName && (
+                  <span className="nearby-chip-road" title={nb.roadName}>
+                    {nb.roadName}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Weather Panel */}
       <WeatherPanel

@@ -28,6 +28,22 @@ export interface FavouriteStop {
   services: string[]; // List of starred bus service numbers at this stop
 }
 
+export interface NearbyStop {
+  stopCode: string;
+  description: string;
+  roadName: string;
+  approxMetres: number;
+}
+
+export interface StopInfo {
+  stopCode: string;
+  description: string;
+  roadName: string;
+  latitude?: number;
+  longitude?: number;
+  nearby: NearbyStop[];
+}
+
 export type FetchState = 'idle' | 'loading' | 'success' | 'empty' | 'refused' | 'unreachable' | 'not_found';
 
 export const SENTENCES = {
