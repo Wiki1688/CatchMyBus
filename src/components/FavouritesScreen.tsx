@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { FavouriteStop, BusArrivalData, RainData, FetchState, SENTENCES } from '../types.ts';
 import { getBus, getRain } from '../data.js';
-import { getBusStopLocation } from '../busStopsData.ts';
 import { WeatherPanel } from './WeatherPanel.tsx';
 
 interface FavouritesScreenProps {
@@ -226,10 +225,10 @@ export const FavouritesScreen: React.FC<FavouritesScreenProps> = ({
   };
 
   // Generate the collapsed one-line summary:
-  // Display name helper: prefers user custom name, falls back to location description
+  // Display name helper: prefers user custom name, falls back to stop code
   const getDisplayName = (fav: FavouriteStop) => {
     if (!fav.stopName || fav.stopName === fav.stopCode) {
-      return getBusStopLocation(fav.stopCode).description;
+      return fav.stopCode;
     }
     return fav.stopName;
   };
@@ -338,7 +337,6 @@ export const FavouritesScreen: React.FC<FavouritesScreenProps> = ({
         {favourites.map((fav, index) => {
           const isExpanded = Boolean(expandedStopCodes[fav.stopCode]);
           const isEditing = editingStopCode === fav.stopCode;
-          const stopLocation = getBusStopLocation(fav.stopCode);
           const displayName = getDisplayName(fav);
 
           return (
@@ -373,12 +371,6 @@ export const FavouritesScreen: React.FC<FavouritesScreenProps> = ({
               {/* Expanded Card Body (default open so starred buses show immediately) */}
               {isExpanded && (
                 <div className="fav-expanded-body" id={`fav-expanded-${fav.stopCode}`}>
-                  {/* Location subtitle */}
-                  <div className="fav-location-subtitle">
-                    <span className="fav-loc-desc">{stopLocation.description}</span>
-                    <span className="fav-loc-road">({stopLocation.roadName})</span>
-                  </div>
-
                   {/* Card Toolbar: Rename + Move Up / Move Down */}
                   <div className="fav-card-toolbar">
                     {isEditing ? (

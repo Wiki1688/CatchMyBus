@@ -50,8 +50,7 @@ export default function App() {
   const handleToggleFavourite = (
     stopCode: string,
     serviceNo: string,
-    currentArea: string,
-    locationDescription?: string
+    currentArea: string
   ) => {
     const existingIndex = favourites.findIndex((f) => f.stopCode === stopCode);
 
@@ -79,20 +78,16 @@ export default function App() {
             ? {
                 ...f,
                 services: [...f.services, serviceNo],
-                stopName:
-                  f.stopName === f.stopCode && locationDescription
-                    ? locationDescription
-                    : f.stopName,
               }
             : f
         );
         handleUpdateFavourites(nextList);
       }
     } else {
-      // New stop card with location description
+      // New stop card: stopName is initialized to stopCode
       const newStop: FavouriteStop = {
         stopCode,
-        stopName: locationDescription || stopCode,
+        stopName: stopCode,
         area: currentArea || 'City',
         services: [serviceNo],
       };
